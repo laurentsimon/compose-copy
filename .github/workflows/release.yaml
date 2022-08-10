@@ -129,9 +129,9 @@ jobs:
           rm ./slsa-verifier-linux-amd64
       
       # test
-      run: |
-        ls
-        tree
+      - run: |
+          ls
+          tree
 
       # Upload to release.
       - uses: ncipollo/release-action@v1
