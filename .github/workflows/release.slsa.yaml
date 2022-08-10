@@ -1,0 +1,147 @@
+name: SLSA Releaser
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release Tag"
+        required: true
+      dry-run:
+        description: "Build, sign, verify but do not release"
+        required: false
+        type: boolean
+        default: true
+
+permissions: read-all
+
+env:
+  GO_VERSION: 1.18.4
+
+jobs:
+  build:
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # - name: Setup docker CLI
+      #   run: |
+      #     curl https://download.docker.com/linux/static/stable/x86_64/docker-20.10.3.tgz | tar xz
+      #     sudo cp ./docker/docker /usr/bin/ && rm -rf docker && docker version
+
+      # - name: Build
+      #   run: make GIT_TAG=${{ github.event.inputs.tag }} -f builder.Makefile cross
+      - name: test
+        run: |
+
+          mkdir bin
+          echo artifact1 > bin/artifact1
+          echo artifact2 > bin/artifact2
+
+      - name: Compute checksums
+        working-directory: bin/
+        run: for f in *; do shasum --binary --algorithm 256 $f | tee -a checksums.txt > $f.sha256; done
+
+      - name: Generate SLSA subjects
+        id: hash
+        working-directory: bin/
+        run: |
+          set -euo pipefail
+          echo "::set-output name=hashes::$(cat checksums.txt | base64 -w0)"
+
+      - name: License
+        run: cp packaging/* bin/
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: "bin"
+          path: "bin/*"
+
+  provenance:
+    needs: [build]
+    permissions:
+      actions:  read # To read the workflow path.
+      id-token: write # To sign the provenance.
+      contents: write # To add assets to a release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.2.0
+    with:
+      base64-subjects: "${{ needs.build.outputs.hashes }}"
+
+  release:
+    needs: [build, provenance]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Download binaries and license.
+      - uses: actions/download-artifact@v3
+        with:
+          name: "bin"
+      # Download provenance file.
+      - uses: actions/download-artifact@v3
+        with:
+          name: "${{ needs.provenance.outputs.attestation-name }}"
+      # Verify binaries.
+      - name: Verify binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROVENANCE: "${{ needs.provenance.outputs.attestation-name }}"
+        run: |
+          set -euo pipefail
+
+          # Download the verifier. This will be replaced by the GHA.
+          gh -R slsa-framework/slsa-verifier release download v1.2.0 -p "slsa-verifier-linux-amd64"
+
+          # Note: see https://github.com/slsa-framework/slsa-verifier/blob/main/SHA256SUM.md
+          COMPUTED_HASH=$(sha256sum slsa-verifier-linux-amd64 | cut -d ' ' -f1)
+          EXPECTED_HASH="37db23392c7918bb4e243cdb097ed5f9d14b9b965dc1905b25bc2d1c0c91bf3d"
+          if [[ "$EXPECTED_HASH" != "$COMPUTED_HASH" ]];then
+              echo "error: expected $EXPECTED_HASH, computed $COMPUTED_HASH"
+              exit 1
+          fi
+          chmod ug+x slsa-verifier-linux-amd64
+
+          # Verify all files, except LICENSE, .sha256 and checksums.txt files.
+          rm LICENSE *.sha256 checksums.txt
+          for f in *;
+          do
+              if [[ "$f" == "attestation.intoto.jsonl" ]] || [[ "$f" == "slsa-verifier-linux-amd64" ]]; then
+                continue
+              fi
+
+              echo "verifying $f"
+              ./slsa-verifier-linux-amd64 -artifact-path "$f" \
+                                      -provenance "$PROVENANCE" \
+                                      -source "github.com/$GITHUB_REPOSITORY" \
+                                      -branch main
+                                      
+          done
+
+          # The slsa verifier is not part of the project.
+          rm ./slsa-verifier-linux-amd64
+      
+      # test
+      - run: |
+          ls
+          tree
+
+          echo ${{ github.event.inputs.tag }}
+
+      # Upload to release.
+      - uses: ncipollo/release-action@v1
+        if: '! inputs.dry-run'
+        with:
+          artifacts: "*"
+          generateReleaseNotes: true
+          draft: true
+          commit: "v2"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.event.inputs.tag }}
