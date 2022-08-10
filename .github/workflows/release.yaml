@@ -106,7 +106,11 @@ jobs:
           # Verify all files, except LICENSE and .sha256 files.
           rm LICENSE *.sha256
           for f in *;
-          do 
+          do
+              if [[ "$f" == "attestation.intoto.jsonl" ]]; then
+                continue
+              fi
+              
               echo "verifying $f"
               ./slsa-verifier-linux-amd64 -artifact-path "$f" \
                                       -provenance "$PROVENANCE" \
