@@ -12,7 +12,7 @@ on:
         type: boolean
         default: true
 
-permisions: read-all
+permissions: read-all
 
 env:
   GO_VERSION: 1.18.4
