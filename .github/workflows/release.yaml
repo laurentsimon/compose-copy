@@ -133,6 +133,8 @@ jobs:
           ls
           tree
 
+          echo ${{ github.event.inputs.tag }}
+
       # Upload to release.
       - uses: ncipollo/release-action@v1
         if: '! inputs.dry-run'
