@@ -107,6 +107,9 @@ jobs:
           for f in *;
           do 
               echo "verifying $f"
+              if [[ "$f" == "LICENSE" ]]; then
+                continue
+              fi
               ./slsa-verifier-linux-amd64 -artifact-path "$f" \
                                       -provenance "$PROVENANCE" \
                                       -source "github.com/$GITHUB_REPOSITORY" \
