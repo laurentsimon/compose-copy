@@ -11,8 +11,12 @@ on:
         required: false
         type: boolean
         default: true
+
+permisions: read-all
+
 env:
   GO_VERSION: 1.18.4
+
 jobs:
   build:
     outputs:
@@ -74,6 +78,8 @@ jobs:
   release:
     needs: [build, provenance]
     runs-on: ubuntu-latest
+    premissions:
+      contents: write
     steps:
       # Download binaries and license.
       - uses: actions/download-artifact@v3
@@ -103,7 +109,7 @@ jobs:
           fi
           chmod ug+x slsa-verifier-linux-amd64
 
-          # Verify all files, except LICENSE and .sha256 and checksums.txt files.
+          # Verify all files, except LICENSE, .sha256 and checksums.txt files.
           rm LICENSE *.sha256 checksums.txt
           for f in *;
           do
@@ -121,7 +127,12 @@ jobs:
 
           # The slsa verifier is not part of the project.
           rm ./slsa-verifier-linux-amd64
-          
+      
+      # test
+      run: |
+        ls
+        tree
+
       # Upload to release.
       - uses: ncipollo/release-action@v1
         if: '! inputs.dry-run'
