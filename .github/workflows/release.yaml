@@ -79,7 +79,6 @@ jobs:
           name: "${{ needs.provenance.outputs.attestation-name }}"
       # Verify binaries.
       - name: Verify binaries
-        working-directory: bin/
         env:
           PROVENANCE: "${{ needs.provenance.outputs.attestation-name }}"
         run: |
@@ -107,6 +106,9 @@ jobs:
                                       -branch main
                                       
           done
+
+          # The slsa verifier is not part of the project.
+          rm ./slsa-verifier-linux-amd64
           
       # Upload to release.
       - uses: ncipollo/release-action@v1
