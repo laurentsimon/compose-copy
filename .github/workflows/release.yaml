@@ -107,7 +107,7 @@ jobs:
           rm LICENSE *.sha256 checksums.txt
           for f in *;
           do
-              if [[ "$f" == "attestation.intoto.jsonl" ]]; then
+              if [[ "$f" == "attestation.intoto.jsonl" ]] || [[ "$f" == "slsa-verifier-linux-amd64" ]]; then
                 continue
               fi
 
