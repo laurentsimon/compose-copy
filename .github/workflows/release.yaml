@@ -104,7 +104,7 @@ jobs:
               ./slsa-verifier-linux-amd64 -artifact-path "$f" \
                                       -provenance "$PROVENANCE" \
                                       -source "github.com/$GITHUB_REPOSITORY" \
-                                      -branch v2
+                                      -branch main
                                       
           done
           
