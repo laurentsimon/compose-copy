@@ -29,7 +29,7 @@ jobs:
       # - name: Build
       #   run: make GIT_TAG=${{ github.event.inputs.tag }} -f builder.Makefile cross
 
-      - name test
+      - name: test
         run: |
           mkdir bin
           echo artifact1 > bin/artifact1
